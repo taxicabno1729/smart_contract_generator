@@ -22,7 +22,7 @@ st.set_page_config(
 def main():
     st.title("✨ Ethereum Smart Contract Generator (LLM Powered)")
     st.markdown("Generate Ethereum smart contracts using AI and deploy them using Remix IDE")
-    st.markdown_unsafe_allow_html("<style>.stButton button {background-color: #4CAF50; color: white;}</style>")
+    st.markdown("<style>.stButton button {background-color: #4CAF50; color: white;}</style>", unsafe_allow_html=True)
 
 
     # --- Gemini API Key Input ---
@@ -52,12 +52,12 @@ def main():
     # Option to choose Gemini Model
     st.sidebar.header("🤖 LLM Configuration")
     # For now, let's stick to the default, but this is where model selection could go
-    # gemini_model_name = st.sidebar.selectbox(
-    #     "Select Gemini Model",
-    #     [GEMINI_DEFAULT_MODEL, "gemini-pro"], # Add other compatible models if needed
-    #     help="Choose the Gemini model for generation."
-    # )
-    gemini_model_name = GEMINI_DEFAULT_MODEL # Keep it fixed for now based on gemini_generator
+    gemini_model_name = st.sidebar.selectbox(
+        "Select Gemini Model",
+        [GEMINI_DEFAULT_MODEL, "gemini-2.5-pro", "gemini-2.5-flash"], # Add other compatible models if needed
+        help="Choose the Gemini model for generation."
+    )
+    # gemini_model_name = GEMINI_DEFAULT_MODEL # Keep it fixed for now based on gemini_generator
     st.sidebar.caption(f"Using model: `{gemini_model_name}`")
 
     st.info("""
@@ -158,37 +158,36 @@ def main():
                 # Generate contract code using Gemini
                 try:
                     with st.spinner(f"🤖 Calling Gemini to generate {contract_type}... This may take a moment."):
-                        # Pass the chosen model name if you implement model selection
                         contract_code = generate_contract_with_gemini(contract_type, contract_params, gemini_api_key, gemini_model_name)
-
+                    
                     st.success(f"🎉 Successfully generated {contract_type} code with Gemini!")
                     # Display code with syntax highlighting
                     st_ace(
                         value=contract_code,
-                    language='solidity',
-                    theme='monokai',
-                    height=400,
-                    auto_update=True,
-                    readonly=True,
-                    key="contract_code"
-                )
-                # Copy to clipboard button
-                if st.button("📋 Copy to Clipboard", help="Copy the generated contract code"):
-                    try:
-                        pyperclip.copy(contract_code)
-                        st.success("Contract code copied to clipboard!")
-                    except:
-                        st.error("Unable to copy to clipboard. Please select and copy the code manually.")
-                # Download button
-                st.download_button(
-                    label="💾 Download Contract",
-                    data=contract_code,
-                    file_name=f"{contract_params.get('name', 'contract').replace(' ', '_')}.sol",
-                    mime="text/plain"
-                )
-            except Exception as e:
-                st.error(f"Error generating contract: {str(e)}")
-                st.info("Please check your input parameters and try again.")
+                        language='solidity',
+                        theme='monokai',
+                        height=400,
+                        auto_update=True,
+                        readonly=True,
+                        key="contract_code"
+                    )
+                    # Copy to clipboard button
+                    if st.button("📋 Copy to Clipboard", help="Copy the generated contract code"):
+                        try:
+                            pyperclip.copy(contract_code)
+                            st.success("Contract code copied to clipboard!")
+                        except Exception as e: # Changed from broad except to Exception as e
+                            st.error(f"Unable to copy to clipboard. Please select and copy the code manually. Error: {e}")
+                    # Download button
+                    st.download_button(
+                        label="💾 Download Contract",
+                        data=contract_code,
+                        file_name=f"{contract_params.get('name', 'contract').replace(' ', '_')}.sol",
+                        mime="text/plain"
+                    )
+                except Exception as e:
+                    st.error(f"Error generating contract: {str(e)}")
+                    st.info("Please check your input parameters, API key, and try again.")
         else:
             st.info("Fill in the contract parameters and click 'Create Contract' to generate your smart contract code.")
     

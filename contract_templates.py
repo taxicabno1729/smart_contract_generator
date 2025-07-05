@@ -163,7 +163,7 @@ class ContractGenerator:
         if include_comments:
             contract_code += "    /**\n     * @dev Constructor that sets up the NFT collection\n     */\n"
         
-        contract_code += f"    constructor() ERC721(\"{name}\", \"{symbol}\") {{\n"
+        contract_code += f"    constructor() ERC721(\"{name}\", \"{symbol}\") Ownable(msg.sender) {{\n"
         contract_code += f"        _baseTokenURI = \"{base_uri}\";\n"
         contract_code += "    }\n    \n"
         
