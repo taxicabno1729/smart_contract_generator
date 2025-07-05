@@ -3,6 +3,7 @@ import pyperclip
 from streamlit_ace import st_ace
 from contract_templates import ContractGenerator
 from deployment_guide import get_deployment_steps
+import hashlib, json
 
 # Configure page
 st.set_page_config(
@@ -83,44 +84,58 @@ def main():
                 help="Choose license for your contract"
             )
             contract_params['include_comments'] = st.checkbox("Include Comments", value=True, help="Include explanatory comments in code")
+
+        # --- Create Contract Button ---
+        if 'contract_created' not in st.session_state:
+            st.session_state.contract_created = False
+        # Reset contract_created if contract_type or params change
+        if 'last_contract_type' not in st.session_state or st.session_state.last_contract_type != contract_type:
+            st.session_state.contract_created = False
+        st.session_state.last_contract_type = contract_type
+        # Hash params to detect changes
+        params_hash = hashlib.md5(json.dumps(contract_params, sort_keys=True, default=str).encode()).hexdigest()
+        if 'last_params_hash' not in st.session_state or st.session_state.last_params_hash != params_hash:
+            st.session_state.contract_created = False
+        st.session_state.last_params_hash = params_hash
+        # Button
+        if st.button("🚀 Create Contract", key="create_contract_btn"):
+            st.session_state.contract_created = True
     
     with col2:
         st.header("📜 Generated Contract")
-        
-        # Generate contract code
-        try:
-            contract_code = st.session_state.contract_generator.generate_contract(contract_type, contract_params)
-            
-            # Display code with syntax highlighting
-            st_ace(
-                value=contract_code,
-                language='solidity',
-                theme='monokai',
-                height=400,
-                auto_update=True,
-                readonly=True,
-                key="contract_code"
-            )
-            
-            # Copy to clipboard button
-            if st.button("📋 Copy to Clipboard", help="Copy the generated contract code"):
-                try:
-                    pyperclip.copy(contract_code)
-                    st.success("Contract code copied to clipboard!")
-                except:
-                    st.error("Unable to copy to clipboard. Please select and copy the code manually.")
-            
-            # Download button
-            st.download_button(
-                label="💾 Download Contract",
-                data=contract_code,
-                file_name=f"{contract_params.get('name', 'contract').replace(' ', '_')}.sol",
-                mime="text/plain"
-            )
-            
-        except Exception as e:
-            st.error(f"Error generating contract: {str(e)}")
-            st.info("Please check your input parameters and try again.")
+        if st.session_state.get('contract_created', False):
+            # Generate contract code
+            try:
+                contract_code = st.session_state.contract_generator.generate_contract(contract_type, contract_params)
+                # Display code with syntax highlighting
+                st_ace(
+                    value=contract_code,
+                    language='solidity',
+                    theme='monokai',
+                    height=400,
+                    auto_update=True,
+                    readonly=True,
+                    key="contract_code"
+                )
+                # Copy to clipboard button
+                if st.button("📋 Copy to Clipboard", help="Copy the generated contract code"):
+                    try:
+                        pyperclip.copy(contract_code)
+                        st.success("Contract code copied to clipboard!")
+                    except:
+                        st.error("Unable to copy to clipboard. Please select and copy the code manually.")
+                # Download button
+                st.download_button(
+                    label="💾 Download Contract",
+                    data=contract_code,
+                    file_name=f"{contract_params.get('name', 'contract').replace(' ', '_')}.sol",
+                    mime="text/plain"
+                )
+            except Exception as e:
+                st.error(f"Error generating contract: {str(e)}")
+                st.info("Please check your input parameters and try again.")
+        else:
+            st.info("Fill in the contract parameters and click 'Create Contract' to generate your smart contract code.")
     
     # Deployment instructions
     st.markdown("---")
