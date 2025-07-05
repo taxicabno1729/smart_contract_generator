@@ -7,6 +7,7 @@ from deployment_guide import get_deployment_steps
 import hashlib
 import json
 import os # For API Key
+import subprocess # For running Truffle commands
 
 # Configure page
 st.set_page_config(
@@ -185,6 +186,58 @@ def main():
                         file_name=f"{contract_params.get('name', 'contract').replace(' ', '_')}.sol",
                         mime="text/plain"
                     )
+
+                    # --- Deploy Contract Button ---
+                    if st.button("🚀 Deploy Contract with Truffle", key="deploy_contract_btn"):
+                        if not os.path.exists("truffle-config.js"):
+                            st.error("🚨 Truffle configuration (`truffle-config.js`) not found. Cannot deploy.")
+                        elif not os.path.exists(f"contracts/{contract_params.get('name', 'contract').replace(' ', '_')}.sol"):
+                            st.warning(f"⚠ Please download the contract as `contracts/{contract_params.get('name', 'contract').replace(' ', '_')}.sol` first or ensure it's saved with the correct name in the `contracts` directory.")
+                        else:
+                            with st.spinner("🚀 Attempting to deploy contract using Truffle... This may take a moment."):
+                                try:
+                                    # Ensure the contract to be deployed matches the one generated
+                                    # This assumes the generated contract is saved to contracts/MyToken.sol (or similar)
+                                    # and that 2_deploy_contracts.js is set up to deploy it.
+                                    # For simplicity, we'll assume the contract name in 2_deploy_contracts.js
+                                    # is "MyToken" and the generated file will be saved as "MyToken.sol".
+                                    # A more robust solution would be to dynamically update 2_deploy_contracts.js
+                                    # or have a naming convention.
+
+                                    # For now, let's save the generated code to the expected file name
+                                    # This is a simplification. Ideally, the user should manage saving.
+                                    contract_filename = "MyToken.sol" # This should match what 2_deploy_contracts.js expects
+                                    # Ensure contracts directory exists
+                                    if not os.path.exists("contracts"):
+                                        os.makedirs("contracts")
+                                    with open(f"contracts/{contract_filename}", "w") as f:
+                                        f.write(contract_code)
+                                    st.info(f"Saved generated code to `contracts/{contract_filename}` for deployment.")
+
+                                    # Also ensure 2_deploy_contracts.js is targeting the right contract name.
+                                    # This is a common source of errors if not aligned.
+                                    # We'll assume it's already set to "MyToken" as per previous fixes.
+
+
+                                    import subprocess
+                                    process = subprocess.run(
+                                        ["truffle", "migrate", "--reset"],
+                                        capture_output=True,
+                                        text=True,
+                                        check=False # Don't raise exception on non-zero exit
+                                    )
+                                    if process.returncode == 0:
+                                        st.success("🎉 Contract deployment initiated successfully!")
+                                        st.text_area("Truffle Output:", process.stdout, height=300)
+                                    else:
+                                        st.error("💥 Contract deployment failed.")
+                                        st.text_area("Truffle Error Output:", process.stderr, height=300)
+                                        if process.stdout:
+                                            st.text_area("Truffle Output:", process.stdout, height=150)
+                                except FileNotFoundError:
+                                    st.error("🚨 `truffle` command not found. Please ensure Truffle is installed and in your PATH.")
+                                except Exception as deploy_err:
+                                    st.error(f"An unexpected error occurred during deployment: {str(deploy_err)}")
                 except Exception as e:
                     st.error(f"Error generating contract: {str(e)}")
                     st.info("Please check your input parameters, API key, and try again.")
