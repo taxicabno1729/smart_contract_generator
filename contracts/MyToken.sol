@@ -5,26 +5,36 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /**
  * @title MyToken
- * @dev A standard ERC20 token with a fixed initial supply.
- * This token is not mintable, burnable, or pausable after deployment.
+ * @dev A standard ERC20 token with a fixed supply.
+ * This contract creates a total supply of 1,000,000 tokens and assigns them
+ * to the address that deploys the contract. It leverages OpenZeppelin's
+ * secure and audited ERC20 implementation.
+ *
+ * Token Details:
+ * - Name: MyToken
+ * - Symbol: MTK
+ * - Decimals: 18
+ * - Total Supply: 1,000,000 MTK
+ * - Mintable: No
+ * - Burnable: No
+ * - Pausable: No
  */
 contract MyToken is ERC20 {
     /**
-     * @dev Constructor that deploys the token with a fixed initial supply.
-     * @param initialOwner The address that will receive the initial supply of tokens.
-     *                     This is typically the deployer of the contract.
+     * @dev Constructor that sets the token name and symbol.
+     * It also mints the initial total supply to the contract deployer.
      */
-    constructor(address initialOwner) ERC20("MyToken", "MTK") {
-        // Define the human-readable initial supply
-        uint256 initialSupplyHumanReadable = 1_000_000; // 1,000,000 tokens
+    constructor() ERC20("MyToken", "MTK") {
+        // Define the initial supply in human-readable units.
+        uint256 initialSupply = 1000;
 
-        // Calculate the initial supply in smallest units (wei for tokens, 18 decimals)
-        // 1 token = 10^18 smallest units
-        uint256 initialSupply = initialSupplyHumanReadable * (10 ** decimals());
+        // Calculate the total supply by adjusting for the token's decimals.
+        // For a token with 18 decimals, this is equivalent to `initialSupply * 10**18`.
+        // The result is 1,000,000,000,000,000,000,000,000 in the smallest unit (wei).
+        uint256 totalSupplyWithDecimals = initialSupply * (10**decimals());
 
-        // Mint the total initial supply to the deployer (initialOwner).
-        // The _mint function is an internal OpenZeppelin function used for initial token creation.
-        // Since there's no external mint function, the token is not "mintable" by anyone after deployment.
-        _mint(initialOwner, initialSupply);
+        // Mint the total supply and transfer it to the contract deployer's address.
+        // `msg.sender` is the address that initiated the contract deployment.
+        _mint(msg.sender, totalSupplyWithDecimals);
     }
 }
