@@ -93,6 +93,13 @@ def _build_prompt(contract_type: str, params: dict) -> str:
         "You are an expert Solidity smart contract developer.",
         "Generate a complete Solidity smart contract based on the following specifications.",
         "The contract should be secure, well-structured, and ready for compilation.",
+        "Code shouldn;t have this error",
+        """
+        "MyToken" hit an invalid opcode while deploying. Try:
+        * Verifying that your constructor params satisfy all assert conditions.
+        * Verifying your constructor code doesn't access an array out of bounds.
+        * Adding reason strings to your assert statements.
+        """,
         f"Solidity version: ^{solidity_version}",
         f"SPDX License Identifier: {license_type}",
         f"Include comments: {'Yes' if include_comments else 'No'}",
