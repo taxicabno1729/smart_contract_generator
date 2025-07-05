@@ -28,19 +28,21 @@ class ContractGenerator:
         
         imports = ["import \"@openzeppelin/contracts/token/ERC20/ERC20.sol\";"]
         inheritance = ["ERC20"]
-        
-        if mintable:
+
+        # Ownable logic:
+        # ERC20Pausable already inherits Ownable.
+        # If pausable is selected, Ownable is covered.
+        # If only mintable is selected (not pausable), then Ownable needs to be added.
+        if pausable:
+            imports.append("import \"@openzeppelin/contracts/token/ERC20/extensions/ERC20Pausable.sol\";")
+            inheritance.append("ERC20Pausable") # ERC20Pausable includes Ownable
+        elif mintable: # Only mintable, not pausable
             imports.append("import \"@openzeppelin/contracts/access/Ownable.sol\";")
             inheritance.append("Ownable")
         
         if burnable:
             imports.append("import \"@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol\";")
             inheritance.append("ERC20Burnable")
-        
-        if pausable:
-            imports.append("import \"@openzeppelin/contracts/token/ERC20/extensions/ERC20Pausable.sol\";")
-            imports.append("import \"@openzeppelin/contracts/access/Ownable.sol\";")
-            inheritance.extend(["ERC20Pausable", "Ownable"])
         
         # Remove duplicates while preserving order
         imports = list(dict.fromkeys(imports))
@@ -56,26 +58,39 @@ class ContractGenerator:
         
         contract_code += f"contract {name.replace(' ', '')} is {', '.join(inheritance)} {{\n"
         
-        if include_comments:
-            contract_code += "    // Token decimals\n    "
-        contract_code += "uint8 private _decimals;\n    \n"
+        # Constructor
+        constructor_params = ["uint256 initialSupply"]
+        # Initializer list for ERC20 and potentially Ownable (if not pausable)
+        initializers = [f"ERC20(\"{name}\", \"{symbol}\")"]
+        if not pausable and mintable: # If only mintable (hence Ownable is explicit)
+             # OpenZeppelin's Ownable constructor takes an initialOwner.
+             # We'll use msg.sender as the initial owner.
+            initializers.append("Ownable(msg.sender)")
+
+
+        constructor_body = f"        _mint(msg.sender, initialSupply * 10**uint256({decimals}));\n"
         
         if include_comments:
             contract_code += "    /**\n     * @dev Constructor that sets up the token\n     * @param initialSupply The initial supply of tokens\n     */\n"
         
-        contract_code += f"    constructor(uint256 initialSupply) ERC20(\"{name}\", \"{symbol}\") {{\n"
-        contract_code += f"        _decimals = {decimals};\n"
-        contract_code += f"        _mint(msg.sender, initialSupply * 10**{decimals});\n"
-        contract_code += "    }\n    \n"
+        contract_code += f"    constructor({', '.join(constructor_params)}) { ' '.join(initializers) } {{\n"
+        contract_code += constructor_body
+        contract_code += "    }\n"
         
-        if include_comments:
-            contract_code += "    /**\n     * @dev Returns the number of decimals used for token amounts\n     */\n"
-        
-        contract_code += "    function decimals() public view virtual override returns (uint8) {\n"
-        contract_code += "        return _decimals;\n"
-        contract_code += "    }"
+        # Override decimals() only if it's not the default 18
+        if decimals != 18:
+            if include_comments:
+                contract_code += "\n    /**\n     * @dev Returns the number of decimals used for token amounts.\n     */\n"
+            contract_code += "    function decimals() public view virtual override returns (uint8) {\n"
+            contract_code += f"        return {decimals};\n"
+            contract_code += "    }\n"
+        elif include_comments: # Add comment if not overriding but comments are on
+            contract_code += "\n    // Note: decimals() is inherited from ERC20.sol and defaults to 18.\n"
+
 
         if mintable:
+            # If pausable is true, onlyOwner comes from ERC20Pausable's Ownable.
+            # If pausable is false (and mintable is true), onlyOwner comes from the explicitly added Ownable.
             contract_code += "\n    \n"
             if include_comments:
                 contract_code += "    /**\n     * @dev Mints new tokens (only owner)\n     * @param to The address to mint tokens to\n     * @param amount The amount of tokens to mint\n     */\n"
@@ -189,17 +204,20 @@ class ContractGenerator:
         if enumerable:
             contract_code += "\n    \n"
             if include_comments:
-                contract_code += "    /**\n     * @dev Override supportsInterface to include ERC721Enumerable\n     */\n"
-            
-            contract_code += "    function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721, ERC721Enumerable) returns (bool) {\n"
+                contract_code += "    /**\n     * @dev See {IERC165-supportsInterface}.\n     */\n"
+            # Corrected override order for OZ v5.x
+            contract_code += "    function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721Enumerable, ERC721) returns (bool) {\n"
             contract_code += "        return super.supportsInterface(interfaceId);\n"
             contract_code += "    }\n    \n"
             
             if include_comments:
-                contract_code += "    /**\n     * @dev Override _beforeTokenTransfer to include ERC721Enumerable\n     */\n"
-            
-            contract_code += "    function _beforeTokenTransfer(address from, address to, uint256 tokenId, uint256 batchSize) internal virtual override(ERC721, ERC721Enumerable) {\n"
-            contract_code += "        super._beforeTokenTransfer(from, to, tokenId, batchSize);\n"
+                contract_code += "    /**\n     * @dev See {ERC721-_beforeTokenTransfer}.\n     *\n     * Requirements:\n     *\n     * - `from` cannot be the zero address.\n     * - `to` cannot be the zero address.\n     * - `tokenId` token must exist and be owned by `from`.\n     */\n"
+            # Corrected signature and override order for OZ v5.x ERC721Enumerable
+            # The parameter name is `firstTokenId` in ERC721Enumerable's specific override.
+            # ERC721's _beforeTokenTransfer is (address from, address to, uint256 tokenId, uint256 batchSize)
+            # ERC721Enumerable's _beforeTokenTransfer is (address from, address to, uint256 firstTokenId, uint256 batchSize)
+            contract_code += "    function _beforeTokenTransfer(address from, address to, uint256 firstTokenId, uint256 batchSize) internal virtual override(ERC721Enumerable, ERC721) {\n"
+            contract_code += "        super._beforeTokenTransfer(from, to, firstTokenId, batchSize);\n"
             contract_code += "    }"
 
         contract_code += "\n}"
