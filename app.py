@@ -1,24 +1,72 @@
 import streamlit as st
 import pyperclip
 from streamlit_ace import st_ace
-from contract_templates import ContractGenerator
+# from contract_templates import ContractGenerator # Keep for now, might remove later or use as fallback
+from gemini_generator import generate_contract_with_gemini, DEFAULT_MODEL as GEMINI_DEFAULT_MODEL
 from deployment_guide import get_deployment_steps
-import hashlib, json
+import hashlib
+import json
+import os # For API Key
 
 # Configure page
 st.set_page_config(
-    page_title="Ethereum Smart Contract Generator",
-    page_icon="⚡",
+    page_title="Ethereum Smart Contract Generator (LLM Powered)",
+    page_icon="✨",
     layout="wide"
 )
 
-# Initialize contract generator
-if 'contract_generator' not in st.session_state:
-    st.session_state.contract_generator = ContractGenerator()
+# # Initialize contract generator (old template based)
+# if 'contract_generator' not in st.session_state:
+#     st.session_state.contract_generator = ContractGenerator()
 
 def main():
-    st.title("⚡ Ethereum Smart Contract Generator")
-    st.markdown("Generate Ethereum smart contracts with ease and deploy them using Remix IDE")
+    st.title("✨ Ethereum Smart Contract Generator (LLM Powered)")
+    st.markdown("Generate Ethereum smart contracts using AI and deploy them using Remix IDE")
+    st.markdown_unsafe_allow_html("<style>.stButton button {background-color: #4CAF50; color: white;}</style>")
+
+
+    # --- Gemini API Key Input ---
+    st.sidebar.header("🔑 Gemini API Key")
+    gemini_api_key_env = os.environ.get("GEMINI_API_KEY")
+
+    # Try to get from st.secrets if available (for deployed apps)
+    try:
+        gemini_api_key_secrets = st.secrets.get("GEMINI_API_KEY")
+    except (AttributeError, FileNotFoundError): # AttributeError if st.secrets doesn't exist, FileNotFoundError for local
+        gemini_api_key_secrets = None
+
+    # Prioritize secrets, then environment variable, then user input
+    if gemini_api_key_secrets:
+        gemini_api_key = gemini_api_key_secrets
+        st.sidebar.success("Gemini API Key loaded from secrets.")
+    elif gemini_api_key_env:
+        gemini_api_key = gemini_api_key_env
+        st.sidebar.success("Gemini API Key loaded from environment variable.")
+    else:
+        gemini_api_key = st.sidebar.text_input("Enter your Gemini API Key:", type="password", help="Get your API key from Google AI Studio.")
+        if gemini_api_key:
+            st.sidebar.success("Gemini API Key entered.")
+        else:
+            st.sidebar.warning("Gemini API Key is required for contract generation.")
+
+    # Option to choose Gemini Model
+    st.sidebar.header("🤖 LLM Configuration")
+    # For now, let's stick to the default, but this is where model selection could go
+    # gemini_model_name = st.sidebar.selectbox(
+    #     "Select Gemini Model",
+    #     [GEMINI_DEFAULT_MODEL, "gemini-pro"], # Add other compatible models if needed
+    #     help="Choose the Gemini model for generation."
+    # )
+    gemini_model_name = GEMINI_DEFAULT_MODEL # Keep it fixed for now based on gemini_generator
+    st.sidebar.caption(f"Using model: `{gemini_model_name}`")
+
+    st.info("""
+        **Welcome to the LLM-Powered Smart Contract Generator!**
+        - Configure your desired contract type and parameters below.
+        - Ensure your Gemini API Key is provided in the sidebar.
+        - The AI will generate the Solidity code for you.
+        - **Always thoroughly review and test any AI-generated smart contract code before use.**
+    """)
     
     # Create two columns for layout
     col1, col2 = st.columns([1, 1])
@@ -104,12 +152,19 @@ def main():
     with col2:
         st.header("📜 Generated Contract")
         if st.session_state.get('contract_created', False):
-            # Generate contract code
-            try:
-                contract_code = st.session_state.contract_generator.generate_contract(contract_type, contract_params)
-                # Display code with syntax highlighting
-                st_ace(
-                    value=contract_code,
+            if not gemini_api_key:
+                st.error("🚨 Gemini API Key is missing. Please provide it in the sidebar to generate the contract.")
+            else:
+                # Generate contract code using Gemini
+                try:
+                    with st.spinner(f"🤖 Calling Gemini to generate {contract_type}... This may take a moment."):
+                        # Pass the chosen model name if you implement model selection
+                        contract_code = generate_contract_with_gemini(contract_type, contract_params, gemini_api_key, gemini_model_name)
+
+                    st.success(f"🎉 Successfully generated {contract_type} code with Gemini!")
+                    # Display code with syntax highlighting
+                    st_ace(
+                        value=contract_code,
                     language='solidity',
                     theme='monokai',
                     height=400,
