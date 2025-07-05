@@ -26,7 +26,8 @@ module.exports = function (deployer, network, accounts) {
   const initialSupply = '1000000000000000000000000'; // Example: 1,000,000 tokens with 18 decimals
   
   // Deploy the contract, explicitly setting the 'from' address
-  deployer.deploy(MyContract, initialSupply, { from: customDeployerAccount });
+  // The MyToken constructor expects the initialOwner as the first argument.
+  deployer.deploy(MyContract, customDeployerAccount, { from: customDeployerAccount });
 
   // --- 3. For Multi-Signature Wallet ---
   // This contract requires an array of owner addresses and the number of required confirmations.
